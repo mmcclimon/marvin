@@ -7,12 +7,6 @@ var (
 	reactorRegistry = make(map[string]ReactorAssembler)
 )
 
-type Bus interface{}
-type Reactor interface{}
-
-type BusAssembler func(cfg any) (Bus, error)
-type ReactorAssembler func(cfg any) (Reactor, error)
-
 func RegisterReactor(name string, assembler ReactorAssembler) {
 	_, exists := reactorRegistry[name]
 	if exists {
