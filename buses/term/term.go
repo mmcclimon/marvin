@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mmcclimon/marvin/pkg/marvin"
+	"github.com/mmcclimon/marvin"
 )
 
 type Term struct{}

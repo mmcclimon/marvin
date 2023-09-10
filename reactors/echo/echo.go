@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/mmcclimon/marvin/pkg/marvin"
+	"github.com/mmcclimon/marvin"
 )
 
 type Echo struct {

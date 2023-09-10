@@ -6,10 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/mmcclimon/marvin/pkg/buses/term"
-	"github.com/mmcclimon/marvin/pkg/marvin"
-
-	"github.com/mmcclimon/marvin/pkg/reactors/echo"
+	"github.com/mmcclimon/marvin"
+	"github.com/mmcclimon/marvin/buses/term"
+	"github.com/mmcclimon/marvin/reactors/echo"
 )
 
 var configFlag = flag.String("c", "", "path to config file")
