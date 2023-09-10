@@ -2,7 +2,7 @@ package marvin
 
 import "context"
 
-type BusAssembler func(any) (Bus, error)
+type BusAssembler func(arbitraryConfig) (Bus, error)
 
 type Bus interface {
 	Run(context.Context, chan<- Event, chan<- error) error

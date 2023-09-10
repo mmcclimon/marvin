@@ -2,7 +2,7 @@ package marvin
 
 import "context"
 
-type ReactorAssembler func(any) (Reactor, error)
+type ReactorAssembler func(arbitraryConfig) (Reactor, error)
 
 type Reactor interface {
 	Run(context.Context, <-chan Event, chan<- error) error

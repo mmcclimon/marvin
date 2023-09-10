@@ -4,14 +4,28 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/mmcclimon/marvin/pkg/marvin"
 )
 
-type Echo struct{}
+type Echo struct {
+	shouldUpper bool
+}
 
-func Assemble(cfg any) (marvin.Reactor, error) {
-	return &Echo{}, nil
+func Assemble(cfg map[string]any) (marvin.Reactor, error) {
+	echo := Echo{}
+	upper, ok := cfg["upper"]
+	if ok {
+		switch val := upper.(type) {
+		case bool:
+			echo.shouldUpper = val
+		default:
+			return nil, fmt.Errorf("bad 'upper' key for echo reactor: %v", upper)
+		}
+	}
+
+	return &echo, nil
 }
 
 func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<- error) error {
@@ -21,7 +35,12 @@ func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<
 			log.Printf("shutting down echo reactor")
 			return nil
 		case event := <-eventCh:
-			fmt.Printf("echo: >>> %s <<<\n", event.Text)
+			text := event.Text
+			if r.shouldUpper {
+				text = strings.ToUpper(text)
+			}
+
+			fmt.Printf("echo: >>> %s <<<\n", text)
 		}
 	}
 }

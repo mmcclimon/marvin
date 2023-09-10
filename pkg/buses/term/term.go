@@ -15,7 +15,7 @@ import (
 
 type Term struct{}
 
-func Assemble(cfg any) (marvin.Bus, error) {
+func Assemble(cfg map[string]any) (marvin.Bus, error) {
 	return &Term{}, nil
 }
 

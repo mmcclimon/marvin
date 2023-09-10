@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type arbitraryConfig map[string]any
+type arbitraryConfig = map[string]any
 
 type Config struct {
 	Name    string
