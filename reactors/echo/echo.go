@@ -6,27 +6,29 @@ import (
 	"log"
 	"strings"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/mmcclimon/marvin"
 )
 
 type Echo struct {
-	name        marvin.ReactorName
-	shouldUpper bool
+	name marvin.ReactorName
+	config
 }
 
-func Assemble(name marvin.ReactorName, cfg map[string]any) (marvin.Reactor, error) {
-	echo := Echo{name: name}
-	upper, ok := cfg["upper"]
-	if ok {
-		switch val := upper.(type) {
-		case bool:
-			echo.shouldUpper = val
-		default:
-			return nil, fmt.Errorf("bad 'upper' key for echo reactor: %v", upper)
-		}
+type config struct {
+	ShouldUpper bool `mapstructure:"upper"`
+}
+
+func Assemble(name marvin.ReactorName, rawConfig map[string]any) (marvin.Reactor, error) {
+	var cfg config
+	if err := mapstructure.Decode(rawConfig, &cfg); err != nil {
+		return nil, fmt.Errorf("bad config for %s reactor: %w", name, err)
 	}
 
-	return &echo, nil
+	return &Echo{
+		name:   name,
+		config: cfg,
+	}, nil
 }
 
 func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<- error) error {
@@ -37,7 +39,7 @@ func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<
 			return nil
 		case event := <-eventCh:
 			text := event.Text
-			if r.shouldUpper {
+			if r.ShouldUpper {
 				text = strings.ToUpper(text)
 			}
 
