@@ -13,8 +13,8 @@ import (
 
 type Marvin struct {
 	err      error
-	buses    map[string]Bus
-	reactors map[string]Reactor
+	buses    map[BusName]Bus
+	reactors map[ReactorName]Reactor
 	events   chan Event
 	errs     chan error
 

@@ -13,10 +13,12 @@ import (
 	"github.com/mmcclimon/marvin"
 )
 
-type Term struct{}
+type Term struct {
+	name marvin.BusName
+}
 
-func Assemble(cfg map[string]any) (marvin.Bus, error) {
-	return &Term{}, nil
+func Assemble(name marvin.BusName, cfg map[string]any) (marvin.Bus, error) {
+	return &Term{name}, nil
 }
 
 func (b *Term) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<- error) error {
@@ -45,8 +47,15 @@ func (b *Term) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<
 				errCh <- errors.New("induced error")
 
 			default:
-				eventCh <- marvin.Event{Text: text}
+				eventCh <- b.eventFromText(text)
 			}
 		}
+	}
+}
+
+func (b *Term) eventFromText(text string) marvin.Event {
+	return marvin.Event{
+		SourceBus: b.name,
+		Text:      text,
 	}
 }

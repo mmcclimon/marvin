@@ -19,12 +19,11 @@ type assemblyError struct {
 }
 
 func (cfg *Config) Assemble() *Marvin {
-	// errMarv := func(err error) *Marvin { return &Marvin{err: err} }
 	marv := &Marvin{
 		events:   make(chan Event),
 		errs:     make(chan error),
-		reactors: make(map[string]Reactor),
-		buses:    make(map[string]Bus),
+		reactors: make(map[ReactorName]Reactor),
+		buses:    make(map[BusName]Bus),
 	}
 
 	cfg.assembleBuses(marv)
@@ -45,13 +44,14 @@ func (cfg *Config) assembleBuses(marv *Marvin) {
 			continue
 		}
 
-		bus, err := assembler(busConfig)
+		identifier := BusName(name)
+		bus, err := assembler(identifier, busConfig)
 		if err != nil {
 			cfg.err.add(fmt.Errorf("error assembling bus '%s': %w", name, err))
 			continue
 		}
 
-		marv.buses[name] = bus
+		marv.buses[identifier] = bus
 	}
 }
 
@@ -63,13 +63,14 @@ func (cfg *Config) assembleReactors(marv *Marvin) {
 			continue
 		}
 
-		reactor, err := assembler(reactorConfig)
+		identifier := ReactorName(name)
+		reactor, err := assembler(identifier, reactorConfig)
 		if err != nil {
 			cfg.err.add(fmt.Errorf("error assembling reactor '%s': %w", name, err))
 			continue
 		}
 
-		marv.reactors[name] = reactor
+		marv.reactors[identifier] = reactor
 	}
 }
 

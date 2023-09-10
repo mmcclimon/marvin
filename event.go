@@ -1,5 +1,6 @@
 package marvin
 
 type Event struct {
-	Text string
+	Text      string
+	SourceBus BusName
 }

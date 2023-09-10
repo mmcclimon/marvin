@@ -10,11 +10,12 @@ import (
 )
 
 type Echo struct {
+	name        marvin.ReactorName
 	shouldUpper bool
 }
 
-func Assemble(cfg map[string]any) (marvin.Reactor, error) {
-	echo := Echo{}
+func Assemble(name marvin.ReactorName, cfg map[string]any) (marvin.Reactor, error) {
+	echo := Echo{name: name}
 	upper, ok := cfg["upper"]
 	if ok {
 		switch val := upper.(type) {
