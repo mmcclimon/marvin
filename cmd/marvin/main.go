@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -24,15 +25,14 @@ func main() {
 	}
 
 	err := marvin.FromFile(*configFlag).Run()
-	if err != nil {
+	if errors.Is(err, marvin.ErrShuttingDown) {
+		log.Println("bye now!")
+	} else if err != nil {
 		log.Fatal(err)
 	}
-
-	log.Println("bye now!")
 }
 
 func registerComponents() {
 	marvin.RegisterBus("term", term.Assemble)
-
 	marvin.RegisterReactor("echo", echo.Assemble)
 }

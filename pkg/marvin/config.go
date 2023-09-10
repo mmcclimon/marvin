@@ -21,6 +21,8 @@ type assemblyError struct {
 func (cfg *Config) Assemble() *Marvin {
 	// errMarv := func(err error) *Marvin { return &Marvin{err: err} }
 	marv := &Marvin{
+		events:   make(chan Event),
+		errs:     make(chan error),
 		reactors: make(map[string]Reactor),
 		buses:    make(map[string]Bus),
 	}

@@ -2,6 +2,7 @@ package echo
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/mmcclimon/marvin/pkg/marvin"
@@ -13,14 +14,14 @@ func Assemble(cfg any) (marvin.Reactor, error) {
 	return &Echo{}, nil
 }
 
-func (r *Echo) Run(ctx context.Context) error {
+func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<- error) error {
 	for {
 		select {
 		case <-ctx.Done():
 			log.Printf("shutting down echo reactor")
 			return nil
-		default:
-			// do nothing
+		case event := <-eventCh:
+			fmt.Printf("echo: >>> %s <<<\n", event.Text)
 		}
 	}
 }

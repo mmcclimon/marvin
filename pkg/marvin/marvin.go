@@ -2,6 +2,7 @@ package marvin
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -14,7 +15,13 @@ type Marvin struct {
 	err      error
 	buses    map[string]Bus
 	reactors map[string]Reactor
+	events   chan Event
+	errs     chan error
+
+	reactorChs []chan Event
 }
+
+var ErrShuttingDown = errors.New("shutting down")
 
 func FromFile(path string) *Marvin {
 	var cfg Config
@@ -45,20 +52,48 @@ func (m *Marvin) Run() error {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, os.Kill)
 	go func() {
-		sig := <-sigChan
-		log.Printf("caught %s, shutting down", sig)
-		cancel()
+		select {
+		case sig := <-sigChan:
+			log.Printf("caught %s, shutting down", sig)
+			cancel()
+		case <-ctx.Done():
+			// just exit
+		}
 	}()
 
 	for name, bus := range m.buses {
 		log.Printf("starting bus %s", name)
-		eg.Go(wrapBusFunc(ctx, bus.Run))
+		eg.Go(m.wrapBusFunc(ctx, bus.Run))
 	}
 
 	for name, reactor := range m.reactors {
 		log.Printf("starting reactor %s", name)
-		eg.Go(wrapBusFunc(ctx, reactor.Run))
+
+		ch := make(chan Event)
+		m.reactorChs = append(m.reactorChs, ch)
+
+		eg.Go(m.wrapReactorFunc(ctx, reactor.Run, ch))
 	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+
+			case err := <-m.errs:
+				log.Printf("oh no, an error: %s", err)
+				cancel()
+				return
+
+			case event := <-m.events:
+				log.Printf("dispatching event: %+v", event)
+				for _, ch := range m.reactorChs {
+					ch <- event
+				}
+			}
+		}
+	}()
 
 	return eg.Wait()
 }

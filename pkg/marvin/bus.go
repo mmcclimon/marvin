@@ -2,14 +2,17 @@ package marvin
 
 import "context"
 
-type BusAssembler func(cfg any) (Bus, error)
+type BusAssembler func(any) (Bus, error)
 
 type Bus interface {
-	Run(context.Context) error
+	Run(context.Context, chan<- Event, chan<- error) error
 }
 
-func wrapBusFunc(ctx context.Context, base func(context.Context) error) func() error {
+func (m *Marvin) wrapBusFunc(
+	ctx context.Context,
+	base func(context.Context, chan<- Event, chan<- error) error,
+) func() error {
 	return func() error {
-		return base(ctx)
+		return base(ctx, m.events, m.errs)
 	}
 }

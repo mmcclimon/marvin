@@ -2,14 +2,18 @@ package marvin
 
 import "context"
 
-type ReactorAssembler func(cfg any) (Reactor, error)
+type ReactorAssembler func(any) (Reactor, error)
 
 type Reactor interface {
-	Run(context.Context) error
+	Run(context.Context, <-chan Event, chan<- error) error
 }
 
-func wrapReactorFunc(ctx context.Context, base func(context.Context) error) func() error {
+func (m *Marvin) wrapReactorFunc(
+	ctx context.Context,
+	base func(context.Context, <-chan Event, chan<- error) error,
+	ch <-chan Event,
+) func() error {
 	return func() error {
-		return base(ctx)
+		return base(ctx, ch, m.errs)
 	}
 }
