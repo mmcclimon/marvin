@@ -7,14 +7,13 @@ import (
 	"os"
 
 	"github.com/mmcclimon/marvin"
-	"github.com/mmcclimon/marvin/buses/term"
-	"github.com/mmcclimon/marvin/reactors/echo"
+	"github.com/mmcclimon/marvin/registry"
 )
 
 var configFlag = flag.String("c", "", "path to config file")
 
 func main() {
-	registerComponents()
+	registry.RegisterAllKnownComponents()
 
 	flag.Parse()
 
@@ -23,15 +22,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	err := marvin.FromFile(*configFlag).Run()
+	err := marvin.FromFile(*configFlag, registry.Default()).Run()
 	if errors.Is(err, marvin.ErrShuttingDown) {
 		log.Println("bye now!")
 	} else if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func registerComponents() {
-	marvin.RegisterBus("term", term.Assemble)
-	marvin.RegisterReactor("echo", echo.Assemble)
 }

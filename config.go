@@ -3,6 +3,8 @@ package marvin
 import (
 	"fmt"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type arbitraryConfig = map[string]any
@@ -14,11 +16,16 @@ type Config struct {
 	err     assemblyError
 }
 
+type Registry interface {
+	BusFor(string) BusAssembler
+	ReactorFor(string) ReactorAssembler
+}
+
 type assemblyError struct {
 	errs []error
 }
 
-func (cfg *Config) Assemble() *Marvin {
+func (cfg *Config) Assemble(registry Registry) *Marvin {
 	marv := &Marvin{
 		events:   make(chan Event),
 		errs:     make(chan error),
@@ -26,8 +33,8 @@ func (cfg *Config) Assemble() *Marvin {
 		buses:    make(map[BusName]Bus),
 	}
 
-	cfg.assembleBuses(marv)
-	cfg.assembleReactors(marv)
+	cfg.assembleBuses(marv, registry)
+	cfg.assembleReactors(marv, registry)
 
 	if cfg.err.hasErrors() {
 		marv.err = cfg.err
@@ -36,9 +43,9 @@ func (cfg *Config) Assemble() *Marvin {
 	return marv
 }
 
-func (cfg *Config) assembleBuses(marv *Marvin) {
+func (cfg *Config) assembleBuses(marv *Marvin, registry Registry) {
 	for name, busConfig := range cfg.Bus {
-		assembler, err := extractAssembler("bus", name, busConfig, busRegistry)
+		assembler, err := extractAssembler("bus", name, busConfig, registry.BusFor)
 		if err != nil {
 			cfg.err.add(err)
 			continue
@@ -55,9 +62,9 @@ func (cfg *Config) assembleBuses(marv *Marvin) {
 	}
 }
 
-func (cfg *Config) assembleReactors(marv *Marvin) {
+func (cfg *Config) assembleReactors(marv *Marvin, registry Registry) {
 	for name, reactorConfig := range cfg.Reactor {
-		assembler, err := extractAssembler("reactor", name, reactorConfig, reactorRegistry)
+		assembler, err := extractAssembler("reactor", name, reactorConfig, registry.ReactorFor)
 		if err != nil {
 			cfg.err.add(err)
 			continue
@@ -79,28 +86,25 @@ type componentAssembler interface {
 }
 
 func extractAssembler[T componentAssembler](
-	thing string,
+	ct string,
 	name string,
-	conf arbitraryConfig,
-	registry map[string]T,
+	rawConf arbitraryConfig,
+	fetcher func(string) T,
 ) (T, error) {
-	typ, ok := conf["type"]
-	if !ok {
-		return nil, fmt.Errorf("no type found for %s '%s'", thing)
+	var conf struct{ Type string }
+
+	if err := mapstructure.Decode(rawConf, &conf); err != nil {
+		return nil, fmt.Errorf("could not extract type for %s '%s': %w", ct, name)
 	}
 
-	typString, ok := typ.(string)
-	if !ok {
-		return nil, fmt.Errorf("'type' for %s '%s' is not a string", thing, name)
-	}
+	delete(rawConf, "type")
 
-	assembler, ok := registry[typString]
-	if !ok {
-		return nil, fmt.Errorf("unknown type found for %s '%s'", thing, name)
+	assembler := fetcher(conf.Type)
+	if assembler == nil {
+		return nil, fmt.Errorf("unknown type found for %s '%s'", ct, name)
 	}
 
 	return assembler, nil
-
 }
 
 func (ae *assemblyError) add(err error) {

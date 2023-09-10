@@ -23,7 +23,7 @@ type Marvin struct {
 
 var ErrShuttingDown = errors.New("shutting down")
 
-func FromFile(path string) *Marvin {
+func FromFile(path string, registry Registry) *Marvin {
 	var cfg Config
 	_, err := toml.DecodeFile(path, &cfg)
 
@@ -31,7 +31,7 @@ func FromFile(path string) *Marvin {
 		return &Marvin{err: err}
 	}
 
-	return cfg.Assemble()
+	return cfg.Assemble(registry)
 }
 
 func (m *Marvin) Run() error {
