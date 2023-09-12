@@ -47,20 +47,29 @@ func (m *Marvin) Run() error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 
+	m.startComponents(ctx, eg)
+	go m.sigChan(ctx, cancel)
+	go m.ioLoop(ctx)
+
+	return eg.Wait()
+}
+
+func (m *Marvin) sigChan(ctx context.Context, cancel context.CancelFunc) {
 	// We're also going to set up a signal channel, so we can shut down on
 	// SIGINT or SIGKILL.
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, os.Kill)
-	go func() {
-		select {
-		case sig := <-sigChan:
-			log.Printf("caught %s, shutting down", sig)
-			cancel()
-		case <-ctx.Done():
-			// just exit
-		}
-	}()
 
+	select {
+	case sig := <-sigChan:
+		log.Printf("caught %s, shutting down", sig)
+		cancel()
+	case <-ctx.Done():
+		// just exit
+	}
+}
+
+func (m *Marvin) startComponents(ctx context.Context, eg *errgroup.Group) {
 	for name, bus := range m.buses {
 		log.Printf("starting bus %s", name)
 		eg.Go(m.wrapBusFunc(ctx, bus.Run))
@@ -74,24 +83,22 @@ func (m *Marvin) Run() error {
 
 		eg.Go(m.wrapReactorFunc(ctx, reactor.Run, ch))
 	}
+}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
+func (m *Marvin) ioLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
 
-			case err := <-m.errs:
-				log.Printf("caught non-fatal error: %s", err)
+		case err := <-m.errs:
+			log.Printf("caught non-fatal error: %s", err)
 
-			case event := <-m.events:
-				log.Printf("dispatching event: id=%d, text=%s", event.ID(), event.Text)
-				for _, ch := range m.reactorChs {
-					ch <- event
-				}
+		case event := <-m.events:
+			log.Printf("dispatching event: id=%d, text=%s", event.ID(), event.Text)
+			for _, ch := range m.reactorChs {
+				ch <- event
 			}
 		}
-	}()
-
-	return eg.Wait()
+	}
 }
