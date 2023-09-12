@@ -43,7 +43,12 @@ func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<
 				text = strings.ToUpper(text)
 			}
 
-			fmt.Printf("echo: >>> %s <<<\n", text)
+			if text == "ignore" {
+				continue
+			}
+
+			event.MarkHandled()
+			event.Reply(fmt.Sprintf("echo: >>> %s <<<", text))
 		}
 	}
 }

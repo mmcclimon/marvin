@@ -82,12 +82,10 @@ func (m *Marvin) Run() error {
 				return
 
 			case err := <-m.errs:
-				log.Printf("oh no, an error: %s", err)
-				cancel()
-				return
+				log.Printf("caught non-fatal error: %s", err)
 
 			case event := <-m.events:
-				log.Printf("dispatching event: %+v", event)
+				log.Printf("dispatching event: id=%d, text=%s", event.ID(), event.Text)
 				for _, ch := range m.reactorChs {
 					ch <- event
 				}

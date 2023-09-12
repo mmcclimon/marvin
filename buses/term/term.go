@@ -47,15 +47,20 @@ func (b *Term) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<
 				errCh <- errors.New("induced error")
 
 			default:
-				eventCh <- b.eventFromText(text)
+				event := b.eventFromText(text)
+				eventCh <- event
+				<-event.Done()
 			}
 		}
 	}
 }
 
 func (b *Term) eventFromText(text string) marvin.Event {
-	return marvin.Event{
-		SourceBus: b.name,
-		Text:      text,
-	}
+	ev := marvin.NewEvent(b)
+	ev.Text = text
+	return ev
+}
+
+func (b *Term) SendMessage(text string) {
+	fmt.Printf("| %s\n", text)
 }
