@@ -3,7 +3,7 @@ package echo
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
@@ -35,7 +35,7 @@ func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("shutting down echo reactor")
+			slog.Info("shutting down echo reactor")
 			return nil
 		case event := <-eventCh:
 			text := event.Text

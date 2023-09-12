@@ -2,6 +2,8 @@ package marvin
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
@@ -10,10 +12,11 @@ import (
 type arbitraryConfig = map[string]any
 
 type Config struct {
-	Name    string
-	Bus     map[string]arbitraryConfig
-	Reactor map[string]arbitraryConfig
-	err     assemblyError
+	Name     string
+	LogLevel slog.Level `toml:"log_level"`
+	Bus      map[string]arbitraryConfig
+	Reactor  map[string]arbitraryConfig
+	err      assemblyError
 }
 
 type Registry interface {
@@ -39,6 +42,12 @@ func (cfg *Config) Assemble(registry Registry) *Marvin {
 	if cfg.err.hasErrors() {
 		marv.err = cfg.err
 	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: cfg.LogLevel,
+	}))
+
+	slog.SetDefault(logger)
 
 	return marv
 }

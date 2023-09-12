@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -27,7 +27,7 @@ func (b *Term) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("shutting down term bus")
+			slog.Info("shutting down term bus")
 			return nil
 
 		default:
@@ -37,7 +37,7 @@ func (b *Term) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<
 
 			switch {
 			case errors.Is(err, io.EOF):
-				log.Println("caught EOF, shutting down bus")
+				slog.Info("caught EOF, shutting down bus")
 				return marvin.ErrShuttingDown
 
 			case err != nil:

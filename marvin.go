@@ -3,7 +3,7 @@ package marvin
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 
@@ -62,7 +62,7 @@ func (m *Marvin) sigChan(ctx context.Context, cancel context.CancelFunc) {
 
 	select {
 	case sig := <-sigChan:
-		log.Printf("caught %s, shutting down", sig)
+		slog.Info("shutting after catching signal", "signal", sig)
 		cancel()
 	case <-ctx.Done():
 		// just exit
@@ -71,12 +71,12 @@ func (m *Marvin) sigChan(ctx context.Context, cancel context.CancelFunc) {
 
 func (m *Marvin) startComponents(ctx context.Context, eg *errgroup.Group) {
 	for name, bus := range m.buses {
-		log.Printf("starting bus %s", name)
+		slog.Info("starting bus", "name", name)
 		eg.Go(m.wrapBusFunc(ctx, bus.Run))
 	}
 
 	for name, reactor := range m.reactors {
-		log.Printf("starting reactor %s", name)
+		slog.Info("starting reactor", "name", name)
 
 		ch := make(chan Event)
 		m.reactorChs = append(m.reactorChs, ch)
@@ -92,10 +92,15 @@ func (m *Marvin) ioLoop(ctx context.Context) {
 			return
 
 		case err := <-m.errs:
-			log.Printf("caught non-fatal error: %s", err)
+			slog.Debug("caught non-fatal error", "err", err)
 
 		case event := <-m.events:
-			log.Printf("dispatching event: id=%d, text=%s", event.ID(), event.Text)
+			slog.LogAttrs(ctx, slog.LevelDebug,
+				"dispatching event",
+				slog.Uint64("id", event.ID()),
+				slog.String("text", event.Text),
+			)
+
 			for _, ch := range m.reactorChs {
 				ch <- event
 			}

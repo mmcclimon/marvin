@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/mmcclimon/marvin"
@@ -24,8 +24,9 @@ func main() {
 
 	err := marvin.FromFile(*configFlag, registry.Default()).Run()
 	if errors.Is(err, marvin.ErrShuttingDown) {
-		log.Println("bye now!")
+		slog.Info("bye now!")
 	} else if err != nil {
-		log.Fatal(err)
+		slog.Warn("fatal error", "err", err)
+		os.Exit(1)
 	}
 }
