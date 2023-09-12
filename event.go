@@ -9,11 +9,6 @@ const (
 	eventTimeout = 250 * time.Millisecond
 )
 
-var nextEventID struct {
-	mu sync.Mutex
-	id uint64
-}
-
 type Event struct {
 	Text      string
 	SourceBus Bus
@@ -23,13 +18,8 @@ type Event struct {
 }
 
 func NewEvent(source Bus) Event {
-	nextEventID.mu.Lock()
-	id := nextEventID.id
-	nextEventID.id++
-	nextEventID.mu.Unlock()
-
 	evt := Event{
-		id:        id,
+		id:        nextID(),
 		SourceBus: source,
 		done:      make(chan struct{}),
 	}
@@ -55,5 +45,19 @@ func (e *Event) Done() <-chan struct{} {
 
 func (e *Event) Reply(text string) {
 	e.SourceBus.SendMessage(text)
+	// lol this panics if you call Reply() more than once to an event
 	close(e.done)
+}
+
+var nextEventID struct {
+	mu sync.Mutex
+	id uint64
+}
+
+func nextID() uint64 {
+	nextEventID.mu.Lock()
+	defer nextEventID.mu.Unlock()
+
+	nextEventID.id++
+	return nextEventID.id
 }
