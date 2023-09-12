@@ -1,6 +1,7 @@
 package marvin
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -14,14 +15,19 @@ type Event struct {
 	SourceBus Bus
 	id        uint64
 	watchdog  *time.Timer
-	done      chan struct{}
+
+	// look, this is super weird, but I just want a done channel
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewEvent(source Bus) Event {
+	ctx, cancel := context.WithCancel(context.Background())
 	evt := Event{
 		id:        nextID(),
 		SourceBus: source,
-		done:      make(chan struct{}),
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 
 	evt.watchdog = time.AfterFunc(eventTimeout, func() {
@@ -40,13 +46,12 @@ func (e *Event) MarkHandled() {
 }
 
 func (e *Event) Done() <-chan struct{} {
-	return e.done
+	return e.ctx.Done()
 }
 
 func (e *Event) Reply(text string) {
 	e.SourceBus.SendMessage(text)
-	// lol this panics if you call Reply() more than once to an event
-	close(e.done)
+	e.cancel()
 }
 
 var nextEventID struct {
