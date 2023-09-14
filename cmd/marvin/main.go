@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -26,7 +27,8 @@ func main() {
 	if errors.Is(err, marvin.ErrShuttingDown) {
 		slog.Info("bye now!")
 	} else if err != nil {
-		slog.Warn("fatal error", "err", err)
+		fmt.Println("fatal error:")
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }

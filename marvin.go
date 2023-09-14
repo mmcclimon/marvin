@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/BurntSushi/toml"
 	"golang.org/x/sync/errgroup"
@@ -57,8 +58,8 @@ func (m *Marvin) Run() error {
 func (m *Marvin) sigChan(ctx context.Context, cancel context.CancelFunc) {
 	// We're also going to set up a signal channel, so we can shut down on
 	// SIGINT or SIGKILL.
-	sigChan := make(chan os.Signal)
-	signal.Notify(sigChan, os.Interrupt, os.Kill)
+	sigChan := make(chan os.Signal, 2)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	select {
 	case sig := <-sigChan:

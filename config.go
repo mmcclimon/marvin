@@ -103,7 +103,7 @@ func extractAssembler[T componentAssembler](
 	var conf struct{ Type string }
 
 	if err := mapstructure.Decode(rawConf, &conf); err != nil {
-		return nil, fmt.Errorf("could not extract type for %s '%s': %w", ct, name)
+		return nil, fmt.Errorf("could not extract type for %s '%s': %w", ct, name, err)
 	}
 
 	delete(rawConf, "type")
