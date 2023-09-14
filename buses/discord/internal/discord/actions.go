@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
@@ -20,7 +19,7 @@ func (c *Client) doHello(ctx context.Context, event GatewayEvent) (*GatewayEvent
 		return nil, fmt.Errorf("bad hello decode: %w", err)
 	}
 
-	slog.Debug("got hello data", "interval", data.HeartbeatInterval)
+	Logger.Debug("got hello data", "interval", data.HeartbeatInterval)
 
 	interval := time.Duration(data.HeartbeatInterval) * time.Millisecond
 	go c.runHeartbeatLoop(ctx, interval, event.Seq)
@@ -34,7 +33,7 @@ func (c *Client) sendHeartbeat(ctx context.Context, seq *int) {
 		"d":  seq,
 	}
 
-	slog.Debug("will send heartbeat", "data", outgoing)
+	Logger.Debug("will send heartbeat", "data", outgoing)
 	data, _ := json.Marshal(outgoing)
 
 	c.acked = false

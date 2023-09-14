@@ -13,6 +13,7 @@ import (
 type Discord struct {
 	name    marvin.BusName
 	discord *discord.Client
+	logger  *slog.Logger
 	raw     chan []byte
 }
 
@@ -26,10 +27,13 @@ func Assemble(name marvin.BusName, rawConfig map[string]any) (marvin.Bus, error)
 		return nil, fmt.Errorf("bad config for %s bus: %w", name, err)
 	}
 
+	logger := slog.Default().With("bus", name)
+
 	return &Discord{
 		name:    name,
 		raw:     make(chan []byte),
-		discord: discord.NewClient(cfg.Token),
+		discord: discord.NewClient(logger, cfg.Token),
+		logger:  logger,
 	}, nil
 }
 
@@ -46,11 +50,11 @@ func (d *Discord) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh ch
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("shutting down discord channel")
+			d.logger.Info("shutting down discord channel")
 			return marvin.ErrShuttingDown
 		case <-d.discord.C:
 			err := d.discord.Err()
-			slog.Info("caught fatal err from discord", "err", err)
+			d.logger.Info("caught fatal err from discord", "err", err)
 			return err
 		case evt := <-evtCh:
 			fmt.Printf("%+v\n", evt)

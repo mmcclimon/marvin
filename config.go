@@ -29,6 +29,12 @@ type assemblyError struct {
 }
 
 func (cfg *Config) Assemble(registry Registry) *Marvin {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: cfg.LogLevel,
+	}))
+
+	slog.SetDefault(logger)
+
 	marv := &Marvin{
 		events:   make(chan Event),
 		errs:     make(chan error),
@@ -42,12 +48,6 @@ func (cfg *Config) Assemble(registry Registry) *Marvin {
 	if cfg.err.hasErrors() {
 		marv.err = cfg.err
 	}
-
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: cfg.LogLevel,
-	}))
-
-	slog.SetDefault(logger)
 
 	return marv
 }

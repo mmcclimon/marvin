@@ -18,20 +18,22 @@ const urlBase = "https://discord.com/api/v10"
 var httpClient = http.Client{Timeout: 5 * time.Second}
 
 type Client struct {
-	C     <-chan struct{}
-	ch    chan struct{}
-	token string
-	ws    *websocket.Conn
-	err   error
-	acked bool
+	C      <-chan struct{}
+	ch     chan struct{}
+	token  string
+	ws     *websocket.Conn
+	err    error
+	acked  bool
+	logger *slog.Logger
 }
 
-func NewClient(token string) *Client {
+func NewClient(logger *slog.Logger, token string) *Client {
 	ch := make(chan struct{})
 	return &Client{
-		token: token,
-		C:     ch,
-		ch:    ch,
+		token:  token,
+		C:      ch,
+		ch:     ch,
+		logger: logger,
 	}
 }
 
@@ -73,7 +75,7 @@ func (c *Client) Run(ctx context.Context, dataCh chan<- GatewayEvent, errCh chan
 	defer c.ws.Close(websocket.StatusNormalClosure, "so long")
 
 	for {
-		slog.Debug("will read from websocket")
+		c.logger.Debug("will read from websocket")
 		readCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 		typ, data, err := c.ws.Read(readCtx)
 		cancel()
@@ -128,7 +130,7 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*GatewayEvent, e
 func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration, seq *int) {
 	jitter := rand.Float64()
 	firstInterval := time.Duration(float64(interval) * jitter)
-	slog.Debug("waiting to send first heartbeat", "interval", firstInterval)
+	c.logger.Debug("waiting to send first heartbeat", "interval", firstInterval)
 
 	timer := time.NewTimer(firstInterval)
 	first := true
@@ -136,14 +138,14 @@ func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration, s
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Debug("shutting down heartbeat loop")
+			c.logger.Debug("shutting down heartbeat loop")
 			timer.Stop()
 			return
 
 		case <-timer.C:
 			if !c.acked && !first {
 				// TODO: handle this somehow
-				slog.Warn("failed to receive ack for last heartbeat")
+				c.logger.Warn("failed to receive ack for last heartbeat")
 				return
 			}
 			c.sendHeartbeat(ctx, seq)
@@ -160,6 +162,6 @@ func (c *Client) write(ctx context.Context, data []byte) {
 	err := c.ws.Write(writeCtx, websocket.MessageText, data)
 	if err != nil {
 		// TODO: handle this somehow
-		slog.Debug("bad websocket write", "err", err)
+		c.logger.Debug("bad websocket write", "err", err)
 	}
 }
