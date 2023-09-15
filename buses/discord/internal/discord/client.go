@@ -24,6 +24,7 @@ type Client struct {
 	ws     *websocket.Conn
 	err    error
 	acked  bool
+	seq    *int
 	logger *slog.Logger
 }
 
@@ -115,9 +116,13 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*GatewayEvent, e
 		return nil, fmt.Errorf("bad frame from discord: %w", err)
 	}
 
+	c.seq = event.Seq
+
 	switch event.Op {
 	case Hello:
 		return c.doHello(ctx, event)
+	case Heartbeat:
+		c.sendHeartbeat(ctx, c.seq)
 	case HeartbeatACK:
 		return c.ackHeartbeat(ctx, event)
 	default:
@@ -127,7 +132,7 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*GatewayEvent, e
 	return &event, nil
 }
 
-func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration, seq *int) {
+func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration) {
 	jitter := rand.Float64()
 	firstInterval := time.Duration(float64(interval) * jitter)
 	c.logger.Debug("waiting to send first heartbeat", "interval", firstInterval)
@@ -148,7 +153,7 @@ func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration, s
 				c.logger.Warn("failed to receive ack for last heartbeat")
 				return
 			}
-			c.sendHeartbeat(ctx, seq)
+			c.sendHeartbeat(ctx, c.seq)
 			timer.Reset(interval)
 			first = false
 		}
