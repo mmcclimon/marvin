@@ -17,6 +17,7 @@ const urlBase = "https://discord.com/api/v10"
 
 var httpClient = http.Client{Timeout: 5 * time.Second}
 
+// Man, this is totally a mess
 type Client struct {
 	C      <-chan struct{}
 	ch     chan struct{}
@@ -26,6 +27,8 @@ type Client struct {
 	acked  bool
 	seq    *int
 	logger *slog.Logger
+
+	haveIdentified bool
 }
 
 func NewClient(logger *slog.Logger, token string) *Client {
@@ -124,6 +127,11 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*GatewayEvent, e
 	case Heartbeat:
 		c.sendHeartbeat(ctx, c.seq)
 	case HeartbeatACK:
+		if !c.haveIdentified {
+			c.doIdentify(ctx)
+			c.haveIdentified = true
+		}
+
 		return c.ackHeartbeat(ctx, event)
 	default:
 		fmt.Printf("ignoring gateway event: %+v\n", event)
