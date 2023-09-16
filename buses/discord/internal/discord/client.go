@@ -106,8 +106,6 @@ func (c *Client) Run(ctx context.Context, dataCh chan<- Message, errCh chan<- er
 }
 
 func (c *Client) handleFrame(ctx context.Context, data []byte) (*Message, error) {
-	fmt.Printf("FRAME: %s\n", string(data))
-
 	var event GatewayEvent
 	if err := json.Unmarshal(data, &event); err != nil {
 		return nil, fmt.Errorf("bad frame from discord: %w", err)
@@ -138,6 +136,8 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*Message, error)
 
 	default:
 		fmt.Printf("ignoring gateway event with type: %d", event.Op)
+		fmt.Printf("  frame: %s\n", string(data))
+
 		return nil, nil
 	}
 }

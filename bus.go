@@ -11,11 +11,11 @@ type Bus interface {
 	SendMessage(ctx context.Context, address any, text string)
 }
 
-func (m *Marvin) wrapBusFunc(
+func (h *Hub) wrapBusFunc(
 	ctx context.Context,
 	base func(context.Context, chan<- Event, chan<- error) error,
 ) func() error {
 	return func() error {
-		return base(ctx, m.events, m.errs)
+		return base(ctx, h.events, h.errs)
 	}
 }

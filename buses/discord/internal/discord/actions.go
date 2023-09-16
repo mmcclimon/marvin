@@ -35,8 +35,8 @@ func (c *Client) sendHeartbeat(ctx context.Context, seq *int) {
 		"d":  seq,
 	}
 
-	c.logger.Debug("will send heartbeat", "data", outgoing)
 	data, _ := json.Marshal(outgoing)
+	c.logger.Debug("will send heartbeat", "data", string(data))
 
 	c.acked = false
 	c.write(ctx, data)

@@ -28,31 +28,21 @@ type assemblyError struct {
 	errs []error
 }
 
-func (cfg *Config) Assemble(registry Registry) *Marvin {
+func (cfg *Config) Assemble(registry Registry) (*Hub, error) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: cfg.LogLevel,
 	}))
 
 	slog.SetDefault(logger)
 
-	marv := &Marvin{
-		events:   make(chan Event),
-		errs:     make(chan error),
-		reactors: make(map[ReactorName]Reactor),
-		buses:    make(map[BusName]Bus),
-	}
+	hub := New()
+	cfg.assembleBuses(hub, registry)
+	cfg.assembleReactors(hub, registry)
 
-	cfg.assembleBuses(marv, registry)
-	cfg.assembleReactors(marv, registry)
-
-	if cfg.err.hasErrors() {
-		marv.err = cfg.err
-	}
-
-	return marv
+	return hub, cfg.err
 }
 
-func (cfg *Config) assembleBuses(marv *Marvin, registry Registry) {
+func (cfg *Config) assembleBuses(hub *Hub, registry Registry) {
 	for name, busConfig := range cfg.Bus {
 		assembler, err := extractAssembler("bus", name, busConfig, registry.BusFor)
 		if err != nil {
@@ -67,11 +57,11 @@ func (cfg *Config) assembleBuses(marv *Marvin, registry Registry) {
 			continue
 		}
 
-		marv.buses[identifier] = bus
+		hub.buses[identifier] = bus
 	}
 }
 
-func (cfg *Config) assembleReactors(marv *Marvin, registry Registry) {
+func (cfg *Config) assembleReactors(hub *Hub, registry Registry) {
 	for name, reactorConfig := range cfg.Reactor {
 		assembler, err := extractAssembler("reactor", name, reactorConfig, registry.ReactorFor)
 		if err != nil {
@@ -86,7 +76,7 @@ func (cfg *Config) assembleReactors(marv *Marvin, registry Registry) {
 			continue
 		}
 
-		marv.reactors[identifier] = reactor
+		hub.reactors[identifier] = reactor
 	}
 }
 

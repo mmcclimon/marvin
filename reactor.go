@@ -10,12 +10,12 @@ type Reactor interface {
 	Run(context.Context, <-chan Event, chan<- error) error
 }
 
-func (m *Marvin) wrapReactorFunc(
+func (h *Hub) wrapReactorFunc(
 	ctx context.Context,
 	base func(context.Context, <-chan Event, chan<- error) error,
 	ch <-chan Event,
 ) func() error {
 	return func() error {
-		return base(ctx, ch, m.errs)
+		return base(ctx, ch, h.errs)
 	}
 }

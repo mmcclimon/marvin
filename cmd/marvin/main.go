@@ -23,7 +23,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	err := marvin.FromFile(*configFlag, registry.Default()).Run()
+	hub, err := marvin.FromFile(*configFlag, registry.Default())
+	maybeExit(err)
+
+	err = hub.Run()
+	maybeExit(err)
+}
+
+func maybeExit(err error) {
 	if errors.Is(err, marvin.ErrShuttingDown) {
 		slog.Info("bye now!")
 	} else if err != nil {
