@@ -50,7 +50,7 @@ func (e *Event) Done() <-chan struct{} {
 }
 
 func (e *Event) Reply(text string) {
-	e.SourceBus.SendMessage(text)
+	e.SourceBus.SendMessage(context.TODO(), text)
 	e.cancel()
 }
 

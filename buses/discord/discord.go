@@ -3,7 +3,9 @@ package discord
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/mmcclimon/marvin"
@@ -44,7 +46,7 @@ func (d *Discord) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh ch
 		return err
 	}
 
-	evtCh := make(chan discord.GatewayEvent)
+	evtCh := make(chan discord.Message)
 	go d.discord.Run(ctx, evtCh, errCh)
 
 	for {
@@ -56,12 +58,32 @@ func (d *Discord) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh ch
 			err := d.discord.Err()
 			d.logger.Info("caught fatal err from discord", "err", err)
 			return err
-		case evt := <-evtCh:
-			fmt.Printf("%+v\n", evt)
+		case msg := <-evtCh:
+			if msg.Author.IsBot {
+				continue
+			}
+
+			evt := d.eventFromMessage(msg)
+			eventCh <- evt
 		}
 	}
 }
 
-func (d *Discord) SendMessage(text string) {
-	fmt.Printf("TODO: send message %s\n", text)
+func (d *Discord) eventFromMessage(msg discord.Message) marvin.Event {
+	ev := marvin.NewEvent(d)
+	ev.Text = msg.Content
+	return ev
+}
+
+func (d *Discord) SendMessage(ctx context.Context, text string) {
+	url := discord.URLFor("/channels/%s/messages", "1152064873161834579") // lol
+	res, err := d.discord.Post(ctx, url, map[string]string{"content": text})
+
+	if err != nil {
+		d.logger.Warn("bad message post", "err", err)
+		return
+	}
+
+	defer res.Body.Close()
+	_, _ = io.Copy(os.Stdout, res.Body)
 }

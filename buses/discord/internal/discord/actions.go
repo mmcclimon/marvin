@@ -15,7 +15,7 @@ type HelloData struct {
 	HeartbeatInterval int `mapstructure:"heartbeat_interval"`
 }
 
-func (c *Client) doHello(ctx context.Context, event GatewayEvent) (*GatewayEvent, error) {
+func (c *Client) doHello(ctx context.Context, event GatewayEvent) (*Event, error) {
 	var data HelloData
 	if err := mapstructure.Decode(event.Data, &data); err != nil {
 		return nil, fmt.Errorf("bad hello decode: %w", err)
@@ -42,7 +42,7 @@ func (c *Client) sendHeartbeat(ctx context.Context, seq *int) {
 	c.write(ctx, data)
 }
 
-func (c *Client) ackHeartbeat(ctx context.Context, event GatewayEvent) (*GatewayEvent, error) {
+func (c *Client) ackHeartbeat(ctx context.Context, event GatewayEvent) (*Event, error) {
 	c.acked = true
 	return nil, nil
 }
@@ -72,4 +72,21 @@ func (c *Client) doIdentify(ctx context.Context) {
 
 	c.logger.Debug("will identify")
 	c.write(ctx, data)
+}
+
+func (c *Client) dispatch(ctx context.Context, evt *GatewayEvent) (*Message, error) {
+	switch evt.Type {
+	case MessageCreate:
+		var message Message
+		err := mapstructure.Decode(evt.Data, &message)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode message: %w", err)
+		}
+
+		return &message, nil
+	default:
+		c.logger.Debug("ignoring dispatch event", "type", evt.Type)
+	}
+
+	return nil, nil
 }

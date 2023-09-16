@@ -1,5 +1,8 @@
 package discord
 
+// FIXME
+type Event any
+
 type OpType int
 
 const (
@@ -31,7 +34,13 @@ const (
 
 type GatewayEvent struct {
 	Op   OpType
-	Data any    `json:"d"`
-	Seq  *int   `json:"s"`
-	Type string `json:"t,omitempty"`
+	Data any       `json:"d"`
+	Seq  *int      `json:"s"`
+	Type EventType `json:"t,omitempty"`
 }
+
+type EventType string
+
+const (
+	MessageCreate EventType = "MESSAGE_CREATE"
+)

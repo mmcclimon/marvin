@@ -8,7 +8,7 @@ type BusAssembler func(BusName, arbitraryConfig) (Bus, error)
 
 type Bus interface {
 	Run(context.Context, chan<- Event, chan<- error) error
-	SendMessage(string)
+	SendMessage(context.Context, string)
 }
 
 func (m *Marvin) wrapBusFunc(
