@@ -21,7 +21,7 @@ func Assemble(name marvin.BusName, cfg map[string]any) (marvin.Bus, error) {
 	return &Term{name}, nil
 }
 
-func (b *Term) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<- error) error {
+func (b *Term) Run(ctx context.Context, comm marvin.BusBundle) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
@@ -41,14 +41,14 @@ func (b *Term) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<
 				return marvin.ErrShuttingDown
 
 			case err != nil:
-				errCh <- err
+				comm.Errors <- err
 
 			case text == "error":
-				errCh <- errors.New("induced error")
+				comm.Errors <- errors.New("induced error")
 
 			default:
 				event := b.eventFromText(text)
-				eventCh <- event
+				comm.Events <- event
 				<-event.Done()
 			}
 		}

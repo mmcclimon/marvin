@@ -31,13 +31,13 @@ func Assemble(name marvin.ReactorName, rawConfig map[string]any) (marvin.Reactor
 	}, nil
 }
 
-func (r *Echo) Run(ctx context.Context, eventCh <-chan marvin.Event, errCh chan<- error) error {
+func (r *Echo) Run(ctx context.Context, comm marvin.ReactorBundle) error {
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("shutting down echo reactor")
 			return nil
-		case event := <-eventCh:
+		case event := <-comm.Events:
 			text := event.Text
 			if r.ShouldUpper {
 				text = strings.ToUpper(text)

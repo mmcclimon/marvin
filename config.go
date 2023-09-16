@@ -39,7 +39,7 @@ func (cfg *Config) Assemble(registry Registry) (*Hub, error) {
 	cfg.assembleBuses(hub, registry)
 	cfg.assembleReactors(hub, registry)
 
-	return hub, cfg.err
+	return hub, cfg.err.OrNil()
 }
 
 func (cfg *Config) assembleBuses(hub *Hub, registry Registry) {
@@ -110,8 +110,12 @@ func (ae *assemblyError) add(err error) {
 	ae.errs = append(ae.errs, err)
 }
 
-func (ae *assemblyError) hasErrors() bool {
-	return len(ae.errs) > 0
+func (ae assemblyError) OrNil() error {
+	if len(ae.errs) == 0 {
+		return nil
+	}
+
+	return ae
 }
 
 func (ae assemblyError) Error() string {

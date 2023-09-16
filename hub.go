@@ -55,10 +55,16 @@ func (h *Hub) startComponents(ctx context.Context, eg *errgroup.Group) {
 	for name, reactor := range h.reactors {
 		slog.Info("starting reactor", "name", name)
 
-		ch := make(chan Event)
-		h.reactorChs = append(h.reactorChs, ch)
+		evtCh := make(chan Event)
+		h.reactorChs = append(h.reactorChs, evtCh)
 
-		eg.Go(h.wrapReactorFunc(ctx, reactor.Run, ch))
+		bundle := ReactorBundle{
+			Events:  evtCh,
+			Replies: h.replies,
+			Errors:  h.errs,
+		}
+
+		eg.Go(h.wrapReactorFunc(ctx, reactor.Run, bundle))
 	}
 }
 

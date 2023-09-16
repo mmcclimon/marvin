@@ -37,15 +37,15 @@ func Assemble(name marvin.BusName, rawConfig map[string]any) (marvin.Bus, error)
 	}, nil
 }
 
-func (d *Discord) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh chan<- error) error {
+func (d *Discord) Run(ctx context.Context, comm marvin.BusBundle) error {
 	// TODO remove this constant
 	url := "wss://gateway.discord.gg"
 	if err := d.discord.Connect(ctx, url); err != nil {
 		return err
 	}
 
-	evtCh := make(chan discord.Message)
-	go d.discord.Run(ctx, evtCh, errCh)
+	msgCh := make(chan discord.Message)
+	go d.discord.Run(ctx, msgCh, comm.Errors)
 
 	for {
 		select {
@@ -56,13 +56,13 @@ func (d *Discord) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh ch
 			err := d.discord.Err()
 			d.logger.Info("caught fatal err from discord", "err", err)
 			return err
-		case msg := <-evtCh:
+		case msg := <-msgCh:
 			if msg.Author.IsBot {
 				continue
 			}
 
 			evt := d.eventFromMessage(msg)
-			eventCh <- evt
+			comm.Events <- evt
 		}
 	}
 }
