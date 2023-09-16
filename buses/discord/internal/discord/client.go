@@ -13,23 +13,26 @@ import (
 
 // Man, this is totally a mess
 type Client struct {
-	C      <-chan struct{}
 	ch     chan struct{}
 	token  string
 	ws     *websocket.Conn
 	err    error
-	acked  bool
-	seq    *int
 	logger *slog.Logger
+	state  clientState
+}
 
-	haveIdentified bool
+type clientState struct {
+	identified bool
+	acked      bool
+	seq        *int
+	sessionID  string
+	resumeURL  string
 }
 
 func NewClient(logger *slog.Logger, token string) *Client {
 	ch := make(chan struct{})
 	return &Client{
 		token:  token,
-		C:      ch,
 		ch:     ch,
 		logger: logger,
 	}
@@ -37,6 +40,10 @@ func NewClient(logger *slog.Logger, token string) *Client {
 
 func (c *Client) Err() error {
 	return c.err
+}
+
+func (c *Client) C() <-chan struct{} {
+	return c.ch
 }
 
 func (c *Client) Connect(ctx context.Context, wssURL string) error {
@@ -111,7 +118,9 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*Message, error)
 		return nil, fmt.Errorf("bad frame from discord: %w", err)
 	}
 
-	c.seq = event.Seq
+	if event.Seq != nil {
+		c.state.seq = event.Seq
+	}
 
 	switch event.Op {
 	case Hello:
@@ -119,13 +128,13 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*Message, error)
 		return nil, err
 
 	case Heartbeat:
-		c.sendHeartbeat(ctx, c.seq)
+		c.sendHeartbeat(ctx, c.state.seq)
 		return nil, nil
 
 	case HeartbeatACK:
-		if !c.haveIdentified {
+		if !c.state.identified {
 			c.doIdentify(ctx)
-			c.haveIdentified = true
+			c.state.identified = true
 		}
 
 		err := c.ackHeartbeat(ctx, event)
@@ -137,9 +146,23 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*Message, error)
 	default:
 		fmt.Printf("ignoring gateway event with type: %d", event.Op)
 		fmt.Printf("  frame: %s\n", string(data))
-
 		return nil, nil
 	}
+}
+
+func (c *Client) dispatch(ctx context.Context, evt *GatewayEvent) (*Message, error) {
+	switch evt.Type {
+	case TypeReady:
+		return nil, c.handleReady(evt)
+
+	case TypeMessageCreate:
+		return c.handleMessage(evt)
+
+	default:
+		c.logger.Debug("ignoring dispatch event", "type", evt.Type)
+	}
+
+	return nil, nil
 }
 
 func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration) {
@@ -159,12 +182,12 @@ func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration) {
 			return
 
 		case <-timer.C:
-			if !c.acked && !first {
+			if !c.state.acked && !first {
 				// TODO: handle this somehow
 				c.logger.Warn("failed to receive ack for last heartbeat")
 				return
 			}
-			c.sendHeartbeat(ctx, c.seq)
+			c.sendHeartbeat(ctx, c.state.seq)
 			timer.Reset(interval)
 			first = false
 		}

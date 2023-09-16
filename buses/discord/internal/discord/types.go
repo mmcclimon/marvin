@@ -14,3 +14,12 @@ type User struct {
 	Discriminator string
 	IsBot         bool `mapstructure:"bot"`
 }
+
+type Ready struct {
+	APIVersion       int `mapstructure:"v"`
+	User             User
+	SessionID        string `mapstructure:"session_id"`
+	ResumeGatewayURL string `mapstructure:"resume_gateway_url"`
+
+	// ignoring, for now: guilds, application
+}

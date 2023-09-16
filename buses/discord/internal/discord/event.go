@@ -39,5 +39,6 @@ type GatewayEvent struct {
 type EventType string
 
 const (
-	MessageCreate EventType = "MESSAGE_CREATE"
+	TypeMessageCreate EventType = "MESSAGE_CREATE"
+	TypeReady         EventType = "READY"
 )

@@ -30,20 +30,24 @@ func (c *Client) doHello(ctx context.Context, event GatewayEvent) error {
 }
 
 func (c *Client) sendHeartbeat(ctx context.Context, seq *int) {
+	pretty := "<nil>"
+	if seq != nil {
+		pretty = fmt.Sprint(*seq)
+	}
+	c.logger.Debug("will send heartbeat", "data", pretty)
+
 	outgoing := map[string]any{
 		"op": Heartbeat,
 		"d":  seq,
 	}
-
 	data, _ := json.Marshal(outgoing)
-	c.logger.Debug("will send heartbeat", "data", string(data))
 
-	c.acked = false
+	c.state.acked = false
 	c.write(ctx, data)
 }
 
 func (c *Client) ackHeartbeat(ctx context.Context, event GatewayEvent) error {
-	c.acked = true
+	c.state.acked = true
 	return nil
 }
 
@@ -74,19 +78,25 @@ func (c *Client) doIdentify(ctx context.Context) {
 	c.write(ctx, data)
 }
 
-func (c *Client) dispatch(ctx context.Context, evt *GatewayEvent) (*Message, error) {
-	switch evt.Type {
-	case MessageCreate:
-		var message Message
-		err := mapstructure.Decode(evt.Data, &message)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode message: %w", err)
-		}
-
-		return &message, nil
-	default:
-		c.logger.Debug("ignoring dispatch event", "type", evt.Type)
+func (c *Client) handleReady(event *GatewayEvent) error {
+	var ready Ready
+	err := mapstructure.Decode(event.Data, &ready)
+	if err != nil {
+		return fmt.Errorf("failed to decode ready event: %w", err)
 	}
 
-	return nil, nil
+	c.state.resumeURL = ready.ResumeGatewayURL
+	c.state.sessionID = ready.SessionID
+	return nil
+}
+
+func (c *Client) handleMessage(event *GatewayEvent) (*Message, error) {
+	var message Message
+
+	err := mapstructure.Decode(event.Data, &message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode message: %w", err)
+	}
+
+	return &message, nil
 }

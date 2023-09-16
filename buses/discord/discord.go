@@ -53,7 +53,7 @@ func (d *Discord) Run(ctx context.Context, comm marvin.BusBundle) error {
 			d.logger.Info("shutting down discord channel")
 			return marvin.ErrShuttingDown
 
-		case <-d.discord.C:
+		case <-d.discord.C():
 			err := d.discord.Err()
 			d.logger.Info("caught fatal err from discord", "err", err)
 			return err
