@@ -44,7 +44,7 @@ func (d *Discord) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh ch
 		return err
 	}
 
-	evtCh := make(chan discord.GatewayEvent)
+	evtCh := make(chan discord.Message)
 	go d.discord.Run(ctx, evtCh, errCh)
 
 	for {
@@ -56,12 +56,32 @@ func (d *Discord) Run(ctx context.Context, eventCh chan<- marvin.Event, errCh ch
 			err := d.discord.Err()
 			d.logger.Info("caught fatal err from discord", "err", err)
 			return err
-		case evt := <-evtCh:
-			fmt.Printf("%+v\n", evt)
+		case msg := <-evtCh:
+			if msg.Author.IsBot {
+				continue
+			}
+
+			evt := d.eventFromMessage(msg)
+			eventCh <- evt
 		}
 	}
 }
 
-func (d *Discord) SendMessage(text string) {
-	fmt.Printf("TODO: send message %s\n", text)
+func (d *Discord) eventFromMessage(msg discord.Message) marvin.Event {
+	ev := marvin.NewEvent(d)
+	ev.Text = msg.Content
+	ev.Address = msg.ChannelID
+	return ev
+}
+
+func (d *Discord) SendMessage(ctx context.Context, address any, text string) {
+	url := discord.URLFor("/channels/%s/messages", address)
+	res, err := d.discord.Post(ctx, url, map[string]string{"content": text})
+
+	if err != nil {
+		d.logger.Warn("bad message post", "err", err)
+		return
+	}
+
+	d.discord.CheckAPIResponse(res)
 }

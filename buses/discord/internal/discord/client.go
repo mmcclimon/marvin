@@ -6,16 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/rand"
-	"net/http"
 	"time"
 
 	"nhooyr.io/websocket"
 )
-
-const urlBase = "https://discord.com/api/v10"
-
-var httpClient = http.Client{Timeout: 5 * time.Second}
 
 // Man, this is totally a mess
 type Client struct {
@@ -75,11 +69,11 @@ func (c *Client) Connect(ctx context.Context, wssURL string) error {
 
 var errFrameNotText = errors.New("got binary websocket type")
 
-func (c *Client) Run(ctx context.Context, dataCh chan<- GatewayEvent, errCh chan<- error) {
+func (c *Client) Run(ctx context.Context, dataCh chan<- Message, errCh chan<- error) {
 	defer c.ws.Close(websocket.StatusNormalClosure, "so long")
 
 	for {
-		c.logger.Debug("will read from websocket")
+		// c.logger.Debug("will read from websocket")
 		readCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 		typ, data, err := c.ws.Read(readCtx)
 		cancel()
@@ -111,7 +105,7 @@ func (c *Client) Run(ctx context.Context, dataCh chan<- GatewayEvent, errCh chan
 	}
 }
 
-func (c *Client) handleFrame(ctx context.Context, data []byte) (*GatewayEvent, error) {
+func (c *Client) handleFrame(ctx context.Context, data []byte) (*Message, error) {
 	fmt.Printf("FRAME: %s\n", string(data))
 
 	var event GatewayEvent
@@ -123,25 +117,34 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*GatewayEvent, e
 
 	switch event.Op {
 	case Hello:
-		return c.doHello(ctx, event)
+		err := c.doHello(ctx, event)
+		return nil, err
+
 	case Heartbeat:
 		c.sendHeartbeat(ctx, c.seq)
+		return nil, nil
+
 	case HeartbeatACK:
 		if !c.haveIdentified {
 			c.doIdentify(ctx)
 			c.haveIdentified = true
 		}
 
-		return c.ackHeartbeat(ctx, event)
-	default:
-		fmt.Printf("ignoring gateway event: %+v\n", event)
-	}
+		err := c.ackHeartbeat(ctx, event)
+		return nil, err
 
-	return &event, nil
+	case Dispatch:
+		return c.dispatch(ctx, &event)
+
+	default:
+		fmt.Printf("ignoring gateway event with type: %d", event.Op)
+		return nil, nil
+	}
 }
 
 func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration) {
-	jitter := rand.Float64()
+	// jitter := rand.Float64()
+	jitter := 0.09
 	firstInterval := time.Duration(float64(interval) * jitter)
 	c.logger.Debug("waiting to send first heartbeat", "interval", firstInterval)
 

@@ -13,6 +13,7 @@ const (
 type Event struct {
 	Text      string
 	SourceBus Bus
+	Address   any
 	id        uint64
 	watchdog  *time.Timer
 
@@ -50,7 +51,7 @@ func (e *Event) Done() <-chan struct{} {
 }
 
 func (e *Event) Reply(text string) {
-	e.SourceBus.SendMessage(text)
+	e.SourceBus.SendMessage(context.TODO(), e.Address, text)
 	e.cancel()
 }
 

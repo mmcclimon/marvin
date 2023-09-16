@@ -61,6 +61,6 @@ func (b *Term) eventFromText(text string) marvin.Event {
 	return ev
 }
 
-func (b *Term) SendMessage(text string) {
+func (b *Term) SendMessage(_ context.Context, _ any, text string) {
 	fmt.Printf("| %s\n", text)
 }
