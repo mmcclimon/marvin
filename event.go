@@ -12,7 +12,7 @@ const (
 
 type Event struct {
 	Text      string
-	SourceBus Bus
+	SourceBus BusName
 	Address   any
 	id        uint64
 	watchdog  *time.Timer
@@ -22,20 +22,28 @@ type Event struct {
 	cancel context.CancelFunc
 }
 
+type Reply struct {
+	Bus     BusName
+	Address any
+	Text    string
+}
+
 func NewEvent(source Bus) Event {
 	ctx, cancel := context.WithCancel(context.Background())
 	evt := Event{
 		id:        nextID(),
-		SourceBus: source,
+		SourceBus: source.Name(),
 		ctx:       ctx,
 		cancel:    cancel,
 	}
 
-	evt.watchdog = time.AfterFunc(eventTimeout, func() {
-		evt.Reply("does not compute")
-	})
-
 	return evt
+}
+
+func (e *Event) setWatchdog(ch chan<- Reply) {
+	e.watchdog = time.AfterFunc(eventTimeout, func() {
+		ch <- e.Reply("does not compute")
+	})
 }
 
 func (e *Event) ID() uint64 {
@@ -50,9 +58,13 @@ func (e *Event) Done() <-chan struct{} {
 	return e.ctx.Done()
 }
 
-func (e *Event) Reply(text string) {
-	e.SourceBus.SendMessage(context.TODO(), e.Address, text)
+func (e *Event) Reply(text string) Reply {
 	e.cancel()
+	return Reply{
+		Bus:     e.SourceBus,
+		Address: e.Address,
+		Text:    text,
+	}
 }
 
 var nextEventID struct {

@@ -30,6 +30,10 @@ func (b *Term) Run(ctx context.Context, comm marvin.BusBundle) error {
 			slog.Info("shutting down term bus")
 			return nil
 
+		case reply := <-comm.Replies:
+			b.SendMessage(ctx, nil, reply.Text)
+			fmt.Print("> ")
+
 		default:
 			fmt.Print("> ")
 			text, err := reader.ReadString('\n')
@@ -60,6 +64,8 @@ func (b *Term) eventFromText(text string) marvin.Event {
 	ev.Text = text
 	return ev
 }
+
+func (b *Term) Name() marvin.BusName { return b.name }
 
 func (b *Term) SendMessage(_ context.Context, _ any, text string) {
 	fmt.Printf("| %s\n", text)

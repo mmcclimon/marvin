@@ -13,6 +13,7 @@ type BusBundle struct {
 }
 
 type Bus interface {
+	Name() BusName
 	Run(context.Context, BusBundle) error
 	SendMessage(ctx context.Context, address any, text string)
 }
@@ -20,14 +21,9 @@ type Bus interface {
 func (h *Hub) wrapBusFunc(
 	ctx context.Context,
 	base func(context.Context, BusBundle) error,
+	bundle BusBundle,
 ) func() error {
-	bb := BusBundle{
-		Events:  h.events,
-		Replies: h.replies,
-		Errors:  h.errs,
-	}
-
 	return func() error {
-		return base(ctx, bb)
+		return base(ctx, bundle)
 	}
 }

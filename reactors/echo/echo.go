@@ -48,7 +48,7 @@ func (r *Echo) Run(ctx context.Context, comm marvin.ReactorBundle) error {
 			}
 
 			event.MarkHandled()
-			event.Reply(fmt.Sprintf("echo: >>> %s <<<", text))
+			comm.Replies <- event.Reply(fmt.Sprintf("echo: >>> %s <<<", text))
 		}
 	}
 }

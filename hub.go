@@ -17,7 +17,8 @@ type Hub struct {
 	replies  chan Reply
 	errs     chan error
 
-	reactorChs []chan Event
+	reactorChs map[ReactorName]chan Event
+	busChs     map[BusName]chan Reply
 }
 
 func New() *Hub {
@@ -27,6 +28,9 @@ func New() *Hub {
 		reactors: make(map[ReactorName]Reactor),
 		buses:    make(map[BusName]Bus),
 		replies:  make(chan Reply),
+
+		reactorChs: make(map[ReactorName]chan Event),
+		busChs:     make(map[BusName]chan Reply),
 	}
 }
 
@@ -48,15 +52,24 @@ func (h *Hub) Run() error {
 
 func (h *Hub) startComponents(ctx context.Context, eg *errgroup.Group) {
 	for name, bus := range h.buses {
+		replyCh := make(chan Reply)
+		h.busChs[name] = replyCh
+
+		bb := BusBundle{
+			Events:  h.events,
+			Replies: replyCh,
+			Errors:  h.errs,
+		}
+
 		slog.Info("starting bus", "name", name)
-		eg.Go(h.wrapBusFunc(ctx, bus.Run))
+		eg.Go(h.wrapBusFunc(ctx, bus.Run, bb))
 	}
 
 	for name, reactor := range h.reactors {
 		slog.Info("starting reactor", "name", name)
 
 		evtCh := make(chan Event)
-		h.reactorChs = append(h.reactorChs, evtCh)
+		h.reactorChs[name] = evtCh
 
 		bundle := ReactorBundle{
 			Events:  evtCh,
@@ -99,12 +112,14 @@ func (h *Hub) ioLoop(ctx context.Context) {
 				slog.String("text", event.Text),
 			)
 
+			event.setWatchdog(h.replies)
+
 			for _, ch := range h.reactorChs {
 				ch <- event
 			}
-		case reply := <-h.replies:
-			reply.Event.Reply(reply.Text)
-		}
 
+		case reply := <-h.replies:
+			h.busChs[reply.Bus] <- reply
+		}
 	}
 }
