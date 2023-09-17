@@ -6,6 +6,7 @@ type Message struct {
 	Author    User
 	Content   string
 	ChannelID string `mapstructure:"channel_id"`
+	Mentions  []User
 }
 
 type User struct {

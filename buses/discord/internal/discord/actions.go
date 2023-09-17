@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
@@ -141,11 +143,34 @@ func (c *Client) reconnect(ctx context.Context) error {
 
 func (c *Client) handleMessage(event *GatewayEvent) (*Message, error) {
 	var message Message
-
 	err := mapstructure.Decode(event.Data, &message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode message: %w", err)
 	}
 
 	return &message, nil
+}
+
+func (c *Client) DecodeFormatting(msg Message) string {
+	raw := msg.Content
+	mentions := make(map[string]string)
+
+	formatted := regexp.MustCompile(`(<@!?\d+>)`).ReplaceAllStringFunc(raw, func(at string) string {
+		id := strings.TrimFunc(at, func(c rune) bool { return c < '0' || c > '9' })
+
+		if len(mentions) == 0 {
+			for _, mention := range msg.Mentions {
+				mentions[mention.ID] = "@" + mention.Username
+			}
+		}
+
+		username, ok := mentions[id]
+		if !ok {
+			return at
+		}
+
+		return username
+	})
+
+	return formatted
 }

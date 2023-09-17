@@ -75,7 +75,7 @@ func (d *Discord) Run(ctx context.Context, comm marvin.BusBundle) error {
 
 func (d *Discord) eventFromMessage(msg discord.Message) marvin.Event {
 	ev := marvin.NewEvent(d)
-	ev.Text = msg.Content
+	ev.Text = d.discord.DecodeFormatting(msg)
 	ev.Address = msg.ChannelID
 	return ev
 }
