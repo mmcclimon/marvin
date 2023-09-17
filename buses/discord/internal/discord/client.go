@@ -11,14 +11,14 @@ import (
 	"nhooyr.io/websocket"
 )
 
-// Man, this is totally a mess
 type Client struct {
-	ch     chan struct{}
-	token  string
-	ws     *websocket.Conn
-	err    error
-	logger *slog.Logger
-	state  clientState
+	ch           chan struct{}
+	reconnecting chan struct{}
+	token        string
+	ws           *websocket.Conn
+	err          error
+	logger       *slog.Logger
+	state        clientState
 }
 
 type clientState struct {
@@ -26,6 +26,7 @@ type clientState struct {
 	acked      bool
 	seq        *int
 	sessionID  string
+	gatewayURL string
 	resumeURL  string
 }
 
@@ -46,26 +47,12 @@ func (c *Client) C() <-chan struct{} {
 	return c.ch
 }
 
-func (c *Client) Connect(ctx context.Context, wssURL string) error {
-	if wssURL == "" {
-		resp, err := httpClient.Get(urlBase + "/gateway")
-		if err != nil {
-			return fmt.Errorf("could not fetch gateway: %w", err)
-		}
-
-		defer resp.Body.Close()
-
-		var data struct{ URL string }
-		err = json.NewDecoder(resp.Body).Decode(&data)
-		if err != nil {
-			return fmt.Errorf("could not read gateway response: %w", err)
-		}
-
-		wssURL = data.URL
-		fmt.Println(wssURL)
+func (c *Client) Connect(ctx context.Context) error {
+	if err := c.loadGatewayURL(); err != nil {
+		return err
 	}
 
-	conn, _, err := websocket.Dial(ctx, wssURL, nil)
+	conn, _, err := websocket.Dial(ctx, c.state.gatewayURL, nil)
 	if err != nil {
 		return fmt.Errorf("could not connect to websocket: %w", err)
 	}
@@ -79,6 +66,8 @@ var errFrameNotText = errors.New("got binary websocket type")
 func (c *Client) Run(ctx context.Context, dataCh chan<- Message, errCh chan<- error) {
 	defer c.ws.Close(websocket.StatusNormalClosure, "so long")
 
+	var closeErr websocket.CloseError
+
 	for {
 		// c.logger.Debug("will read from websocket")
 		readCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
@@ -88,6 +77,13 @@ func (c *Client) Run(ctx context.Context, dataCh chan<- Message, errCh chan<- er
 		switch {
 		case errors.Is(err, context.Canceled):
 			// this is fine.
+		case errors.As(err, &closeErr):
+			err = c.maybeResume(ctx, closeErr)
+			if err == nil {
+				continue
+			}
+
+			fallthrough
 		case err != nil:
 			c.err = fmt.Errorf("ws read error: %w", err)
 			close(c.ch)
@@ -140,14 +136,33 @@ func (c *Client) handleFrame(ctx context.Context, data []byte) (*Message, error)
 		err := c.ackHeartbeat(ctx, event)
 		return nil, err
 
+	case Reconnect:
+		return nil, c.resume(ctx)
+
+	case InvalidSession:
+		canResume, ok := event.Data.(bool)
+		if !ok {
+			return nil, fmt.Errorf("got an InvalidSession op with bad data: %+v", event.Data)
+		}
+
+		if canResume {
+			return nil, c.resume(ctx)
+		}
+
+		return nil, c.reconnect(ctx)
+
 	case Dispatch:
 		return c.dispatch(ctx, &event)
 
 	default:
-		fmt.Printf("ignoring gateway event with type: %d", event.Op)
+		c.logger.Debug("ignoring gateway event", "type", event.Op)
 		fmt.Printf("  frame: %s\n", string(data))
 		return nil, nil
 	}
+}
+
+func reconnectContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, 15*time.Second)
 }
 
 func (c *Client) dispatch(ctx context.Context, evt *GatewayEvent) (*Message, error) {
@@ -157,6 +172,10 @@ func (c *Client) dispatch(ctx context.Context, evt *GatewayEvent) (*Message, err
 
 	case TypeMessageCreate:
 		return c.handleMessage(evt)
+
+	case TypeResumed:
+		c.logger.Debug("finished resuming")
+		return nil, nil
 
 	default:
 		c.logger.Debug("ignoring dispatch event", "type", evt.Type)
@@ -174,11 +193,18 @@ func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration) {
 	timer := time.NewTimer(firstInterval)
 	first := true
 
+	shutdown := func(reason string) {
+		c.logger.Debug("shutting down heartbeat loop", "reason", reason)
+		timer.Stop()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			c.logger.Debug("shutting down heartbeat loop")
-			timer.Stop()
+			shutdown("context cancelled")
+			return
+		case <-c.reconnecting:
+			shutdown("reconnecting")
 			return
 
 		case <-timer.C:

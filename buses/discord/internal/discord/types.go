@@ -23,3 +23,10 @@ type Ready struct {
 
 	// ignoring, for now: guilds, application
 }
+
+// payload for sending resume ops
+type GatewayResume struct {
+	Token     string `json:"token"`
+	SessionID string `json:"session_id"`
+	Seq       *int   `json:"seq"`
+}

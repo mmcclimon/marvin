@@ -1,5 +1,7 @@
 package discord
 
+import "nhooyr.io/websocket"
+
 type OpType int
 
 const (
@@ -41,4 +43,25 @@ type EventType string
 const (
 	TypeMessageCreate EventType = "MESSAGE_CREATE"
 	TypeReady         EventType = "READY"
+	TypeResumed       EventType = "RESUMED"
+)
+
+// https://discord.com/developers/docs/topics/opcodes-and-status-codes#gateway-gateway-close-event-codes
+type CloseCode int
+
+const (
+	UnknownError         websocket.StatusCode = 4000
+	UnknownOpcode        websocket.StatusCode = 4001
+	DecodeError          websocket.StatusCode = 4002
+	NotAuthenticated     websocket.StatusCode = 4003
+	AuthenticationFailed websocket.StatusCode = 4004
+	AlreadyAuthenticated websocket.StatusCode = 4005
+	InvalidSeq           websocket.StatusCode = 4007
+	RateLimited          websocket.StatusCode = 4008
+	SessionTimedOut      websocket.StatusCode = 4009
+	InvalidShard         websocket.StatusCode = 4010
+	ShardingRequired     websocket.StatusCode = 4011
+	InvalidAPIVersion    websocket.StatusCode = 4012
+	InvalidIntent        websocket.StatusCode = 4013
+	DisallowedIntent     websocket.StatusCode = 4014
 )

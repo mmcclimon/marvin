@@ -17,6 +17,28 @@ func URLFor(endpoint string, args ...any) string {
 	return fmt.Sprintf(urlBase+endpoint, args...)
 }
 
+func (c *Client) loadGatewayURL() error {
+	if c.state.gatewayURL != "" {
+		return nil // already cached
+	}
+
+	resp, err := httpClient.Get(urlBase + "/gateway")
+	if err != nil {
+		return fmt.Errorf("could not fetch gateway: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	var data struct{ URL string }
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return fmt.Errorf("could not read gateway response: %w", err)
+	}
+
+	c.state.gatewayURL = data.URL
+	return nil
+}
+
 func (c *Client) Post(ctx context.Context, url string, data any) (*http.Response, error) {
 	body, err := json.Marshal(data)
 	if err != nil {

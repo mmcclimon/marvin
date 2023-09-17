@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+	"nhooyr.io/websocket"
 )
 
 type arbitraryJSON = map[string]any
@@ -88,6 +89,54 @@ func (c *Client) handleReady(event *GatewayEvent) error {
 	c.state.resumeURL = ready.ResumeGatewayURL
 	c.state.sessionID = ready.SessionID
 	return nil
+}
+
+func (c *Client) maybeResume(ctx context.Context, err websocket.CloseError) error {
+	switch err.Code {
+	case AuthenticationFailed, InvalidShard, ShardingRequired,
+		InvalidAPIVersion, InvalidIntent, DisallowedIntent:
+		return err
+	}
+
+	return c.resume(ctx)
+}
+
+func (c *Client) resume(ctx context.Context) error {
+	rctx, cancel := reconnectContext(ctx)
+	defer cancel()
+
+	c.logger.Info("resuming websocket connection")
+	conn, _, err := websocket.Dial(rctx, c.state.resumeURL, nil)
+	if err != nil {
+		return fmt.Errorf("could not reconnect to websocket: %w", err)
+	}
+
+	c.ws = conn
+
+	data, _ := json.Marshal(arbitraryJSON{
+		"op": Resume,
+		"d": GatewayResume{
+			Token:     c.token,
+			SessionID: c.state.sessionID,
+			Seq:       c.state.seq,
+		},
+	})
+
+	c.write(rctx, data)
+	return nil
+}
+
+func (c *Client) reconnect(ctx context.Context) error {
+	c.reconnecting <- struct{}{}
+	c.state = clientState{
+		gatewayURL: c.state.gatewayURL,
+	}
+
+	rctx, cancel := reconnectContext(ctx)
+	defer cancel()
+
+	c.logger.Info("reconnecting websocket connection")
+	return c.Connect(rctx)
 }
 
 func (c *Client) handleMessage(event *GatewayEvent) (*Message, error) {
