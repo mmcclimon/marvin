@@ -2,6 +2,7 @@ package marvin
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -58,12 +59,12 @@ func (e *Event) Done() <-chan struct{} {
 	return e.ctx.Done()
 }
 
-func (e *Event) Reply(text string) Reply {
+func (e *Event) Reply(format string, args ...any) Reply {
 	e.cancel()
 	return Reply{
 		Bus:     e.SourceBus,
 		Address: e.Address,
-		Text:    text,
+		Text:    fmt.Sprintf(format, args...),
 	}
 }
 
