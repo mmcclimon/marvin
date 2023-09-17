@@ -12,13 +12,20 @@ import (
 )
 
 type Client struct {
-	ch           chan struct{}
-	reconnecting chan struct{}
-	token        string
-	ws           *websocket.Conn
-	err          error
-	logger       *slog.Logger
-	state        clientState
+	Err error // set on fatal errors
+
+	// these are passed in and stashed
+	token  string
+	logger *slog.Logger
+
+	// persistent state
+	ws    *websocket.Conn
+	state clientState
+
+	// communication channels
+	fatalNotifier chan struct{} // closed when we die, which sets .Err
+	errors        chan error    // over which we send non-fatal errors
+	reconnecting  chan struct{} // used to signal the heartbeat loop to shut down
 }
 
 type clientState struct {
@@ -31,20 +38,21 @@ type clientState struct {
 }
 
 func NewClient(logger *slog.Logger, token string) *Client {
-	ch := make(chan struct{})
 	return &Client{
-		token:  token,
-		ch:     ch,
-		logger: logger,
+		token:         token,
+		logger:        logger,
+		fatalNotifier: make(chan struct{}),
+		reconnecting:  make(chan struct{}),
+		errors:        make(chan error),
 	}
 }
 
-func (c *Client) Err() error {
-	return c.err
+func (c *Client) Fatal() <-chan struct{} {
+	return c.fatalNotifier
 }
 
-func (c *Client) C() <-chan struct{} {
-	return c.ch
+func (c *Client) Errors() <-chan error {
+	return c.errors
 }
 
 func (c *Client) Connect(ctx context.Context) error {
@@ -85,8 +93,8 @@ func (c *Client) Run(ctx context.Context, dataCh chan<- Message, errCh chan<- er
 
 			fallthrough
 		case err != nil:
-			c.err = fmt.Errorf("ws read error: %w", err)
-			close(c.ch)
+			c.Err = fmt.Errorf("ws read error: %w", err)
+			close(c.fatalNotifier)
 			return
 		case typ != websocket.MessageText:
 			errCh <- errFrameNotText
@@ -94,6 +102,8 @@ func (c *Client) Run(ctx context.Context, dataCh chan<- Message, errCh chan<- er
 
 		select {
 		case <-ctx.Done():
+			return
+		case <-c.fatalNotifier:
 			return
 		default:
 			evt, err := c.handleFrame(ctx, data)
@@ -209,10 +219,16 @@ func (c *Client) runHeartbeatLoop(ctx context.Context, interval time.Duration) {
 
 		case <-timer.C:
 			if !c.state.acked && !first {
-				// TODO: handle this somehow
-				c.logger.Warn("failed to receive ack for last heartbeat")
-				return
+				c.errors <- fmt.Errorf("failed to receive ack for last heartbeat")
+
+				if err := c.resume(ctx); err != nil {
+					c.Err = fmt.Errorf("failed to reconnect after lost ack: %w", err)
+					c.fatalNotifier <- struct{}{}
+				}
+
+				continue
 			}
+
 			c.sendHeartbeat(ctx, c.state.seq)
 			timer.Reset(interval)
 			first = false
@@ -226,7 +242,6 @@ func (c *Client) write(ctx context.Context, data []byte) {
 
 	err := c.ws.Write(writeCtx, websocket.MessageText, data)
 	if err != nil {
-		// TODO: handle this somehow
-		c.logger.Debug("bad websocket write", "err", err)
+		c.errors <- fmt.Errorf("bad websocket write: %w", err)
 	}
 }

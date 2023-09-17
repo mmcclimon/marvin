@@ -51,10 +51,13 @@ func (d *Discord) Run(ctx context.Context, comm marvin.BusBundle) error {
 			d.logger.Info("shutting down discord channel")
 			return marvin.ErrShuttingDown
 
-		case <-d.discord.C():
-			err := d.discord.Err()
-			d.logger.Info("caught fatal err from discord", "err", err)
+		case <-d.discord.Fatal():
+			err := d.discord.Err
+			d.logger.Warn("fatal err from discord", "err", err)
 			return err
+
+		case err := <-d.discord.Errors():
+			d.logger.Warn("caught error from discord client", "err", err)
 
 		case reply := <-comm.Replies:
 			d.SendMessage(ctx, reply.Address, reply.Text)
