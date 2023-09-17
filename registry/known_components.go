@@ -4,6 +4,7 @@ import (
 	"github.com/mmcclimon/marvin/buses/discord"
 	"github.com/mmcclimon/marvin/buses/term"
 	"github.com/mmcclimon/marvin/reactors/echo"
+	"github.com/mmcclimon/marvin/reactors/eject"
 )
 
 // RegisterAllKnownComponents adds all the default buses and reactors with
@@ -14,4 +15,5 @@ func RegisterAllKnownComponents() {
 	RegisterBus("discord", discord.Assemble)
 
 	RegisterReactor("echo", echo.Assemble)
+	RegisterReactor("eject", eject.Assemble)
 }
